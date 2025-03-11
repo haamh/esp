@@ -1,12 +1,15 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
     <title>ESP32 Health Monitor</title>
 </head>
+
 <body>
     <h2>ESP32 Health Monitor</h2>
     <button onclick="connectBluetooth()">Connect to ESP32</button>
     <p id="status">Status: Disconnected</p>
+
     <p>BPM: <span id="bpm">0</span></p>
     <p>Avg BPM: <span id="avgBpm">0</span></p>
     <p>Steps: <span id="steps">0</span></p>
@@ -32,20 +35,29 @@
 
                 characteristic.addEventListener("characteristicvaluechanged", handleData);
                 await characteristic.startNotifications();
+                console.log("Connected and receiving data...");
             } catch (error) {
                 console.error("Bluetooth connection failed", error);
             }
         }
 
         function handleData(event) {
-            let data = new TextDecoder().decode(event.target.value);
-            let json = JSON.parse(data);
+            try {
+                let data = new TextDecoder().decode(event.target.value);
+                console.log("Received Data:", data);
 
-            document.getElementById("bpm").textContent = json.BPM;
-            document.getElementById("avgBpm").textContent = json.AvgBPM;
-            document.getElementById("steps").textContent = json.Steps;
-            document.getElementById("gsr").textContent = json.GSR;
+                let json = JSON.parse(data);
+
+                document.getElementById("bpm").textContent = json.BPM;
+                document.getElementById("avgBpm").textContent = json.AvgBPM;
+                document.getElementById("steps").textContent = json.Steps;
+                document.getElementById("gsr").textContent = json.GSR;
+            } catch (err) {
+                console.error("Error parsing JSON data:", err);
+            }
         }
     </script>
+
 </body>
+
 </html>
