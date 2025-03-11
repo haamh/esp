@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>ESP32 Health Monitor</title>
+</head>
+
+<body>
+    <h2>ESP32 Health Monitor</h2>
+    <button onclick="connectBluetooth()">Connect to ESP32</button>
+    <p id="status">Status: Disconnected</p>
+
+    <p>BPM: <span id="bpm">0</span></p>
+    <p>Avg BPM: <span id="avgBpm">0</span></p>
+    <p>Steps: <span id="steps">0</span></p>
+    <p>GSR: <span id="gsr">0</span></p>
+
+    <script>
+        const serviceUUID = "12345678-1234-5678-1234-56789abcdef0";
+        const characteristicUUID = "abcdef01-1234-5678-1234-56789abcdef1";
+        let characteristic;
+
+        async function connectBluetooth() {
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [serviceUUID]
+                });
+
+                const server = await device.gatt.connect();
+                document.getElementById("status").textContent = "Status: Connected";
+
+                const service = await server.getPrimaryService(serviceUUID);
+                characteristic = await service.getCharacteristic(characteristicUUID);
+
+                characteristic.addEventListener("characteristicvaluechanged", handleData);
+                await characteristic.startNotifications();
+                console.log("Connected and receiving data...");
+            } catch (error) {
+                console.error("Bluetooth connection failed", error);
+            }
+        }
+
+        function handleData(event) {
+            try {
+                let data = new TextDecoder().decode(event.target.value);
+                console.log("Received Data:", data);
+
+                let json = JSON.parse(data);
+
+                document.getElementById("bpm").textContent = json.BPM;
+                document.getElementById("avgBpm").textContent = json.AvgBPM;
+                document.getElementById("steps").textContent = json.Steps;
+                document.getElementById("gsr").textContent = json.GSR;
+            } catch (err) {
+                console.error("Error parsing JSON data:", err);
+            }
+        }
+    </script>
+
+</body>
+
+</html>
