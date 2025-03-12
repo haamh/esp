@@ -45,7 +45,9 @@
             scene.position.set(-0.46, -1.4, 0);
 
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 500);
-            camera.position.set(0, 0, 5);
+            camera.position.set(0, 0, 5);  // This seems fine, as the camera is placed 5 units away on the Z-axis.
+            camera.lookAt(model.position);  // Make sure camera looks at the model.
+
             camera.updateProjectionMatrix();
 
             renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
