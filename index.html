@@ -1,63 +1,88 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>ESP32 Health Monitor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        p {
+            font-size: 18px;
+        }
+    </style>
 </head>
-
 <body>
     <h2>ESP32 Health Monitor</h2>
-    <button onclick="connectBluetooth()">Connect to ESP32</button>
+    <button id="connectBleButton">Connect to ESP32</button>
     <p id="status">Status: Disconnected</p>
-
+    
+    <h3>Received Data:</h3>
     <p>BPM: <span id="bpm">0</span></p>
     <p>Avg BPM: <span id="avgBpm">0</span></p>
     <p>Steps: <span id="steps">0</span></p>
     <p>GSR: <span id="gsr">0</span></p>
+    <p>Status: <span id="statusText">Not available</span></p>
 
     <script>
         const serviceUUID = "12345678-1234-5678-1234-56789abcdef0";
         const characteristicUUID = "abcdef01-1234-5678-1234-56789abcdef1";
         let characteristic;
 
-        async function connectBluetooth() {
+        const connectButton = document.getElementById('connectBleButton');
+        const statusText = document.getElementById('status');
+        const bpmText = document.getElementById('bpm');
+        const avgBpmText = document.getElementById('avgBpm');
+        const stepsText = document.getElementById('steps');
+        const gsrText = document.getElementById('gsr');
+        const statusTextElement = document.getElementById('statusText');
+
+        connectButton.addEventListener('click', connectToDevice);
+
+        async function connectToDevice() {
             try {
                 const device = await navigator.bluetooth.requestDevice({
-                    acceptAllDevices: true,
-                    optionalServices: [serviceUUID]
+                    filters: [{ services: [serviceUUID] }]
                 });
 
                 const server = await device.gatt.connect();
-                document.getElementById("status").textContent = "Status: Connected";
+                console.log("Connected to GATT server");
+                statusText.textContent = "Connected to " + device.name;
 
                 const service = await server.getPrimaryService(serviceUUID);
                 characteristic = await service.getCharacteristic(characteristicUUID);
 
-                characteristic.addEventListener("characteristicvaluechanged", handleData);
+                characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicChange);
                 await characteristic.startNotifications();
-                console.log("Connected and receiving data...");
+
+                console.log("Notifications started");
             } catch (error) {
-                console.error("Bluetooth connection failed", error);
+                console.log("Error connecting to device", error);
+                statusText.textContent = "Error connecting to device.";
             }
         }
 
-        function handleData(event) {
+        function handleCharacteristicChange(event) {
+            const value = new TextDecoder().decode(event.target.value);
+            console.log("Received data:", value);
+
             try {
-                let data = new TextDecoder().decode(event.target.value);
-                console.log("Received Data:", data);
-
-                let json = JSON.parse(data);
-
-                document.getElementById("bpm").textContent = json.BPM;
-                document.getElementById("avgBpm").textContent = json.AvgBPM;
-                document.getElementById("steps").textContent = json.Steps;
-                document.getElementById("gsr").textContent = json.GSR;
-            } catch (err) {
-                console.error("Error parsing JSON data:", err);
+                const jsonData = JSON.parse(value);
+                bpmText.textContent = jsonData.BPM;
+                avgBpmText.textContent = jsonData.AvgBPM;
+                stepsText.textContent = jsonData.Steps;
+                gsrText.textContent = jsonData.GSR;
+                statusTextElement.textContent = jsonData.Status;
+            } catch (error) {
+                console.error("Error parsing JSON data:", error);
             }
         }
     </script>
-
- </body>
-
+</body>
 </html>
