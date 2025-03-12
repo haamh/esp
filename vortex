@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+
+    <title>Ruzana )</title>
+    <link href="https://fonts.cdnfonts.com/css/cursive" rel="stylesheet">
+                
+     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js"></script>
+
+    <script type="module">
+        import * as THREE from 'https://cdn.skypack.dev/three@0.129.0/build/three.module.js';
+        import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.129.0/examples/jsm/loaders/GLTFLoader.js';
+
+        let scene, camera, renderer, model, mixer;
+        const clock = new THREE.Clock();
+        let actions = {};
+        let activeAction, previousAction;
+        let modelLoaded = false;
+        let cameraGranted = false;
+        let waveLoop;
+        let prayLoop;
+        let kissLoop;
+
+        function init() {
+            const container = document.createElement('div');
+            container.id = 'model-container';
+            document.body.appendChild(container);
+
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 1, 3);
+
+            renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFShadowMap; // Optimized shadow map type for performance
+            renderer.domElement.style.pointerEvents = 'none'; // Prevent canvas from blocking clicks
+            document.body.appendChild(renderer.domElement);
+
+            renderer.domElement.style.position = 'fixed';
+            renderer.domElement.style.bottom = '-7vh'; 
+            renderer.domElement.style.left = '-15vw';
+            renderer.domElement.style.zIndex = '1';
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 4); // Brighter directional light
+            directionalLight.position.set(2, 5, 5);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1); // Brighter ambient light
+            scene.add(ambientLight);
+
+            // Create ground for shadow reception
+            const ground = new THREE.Mesh(
+                new THREE.PlaneGeometry(10, 10),
+                new THREE.ShadowMaterial({ opacity: 0.5 })
+            );
+            ground.rotation.x = - Math.PI / 2; // Rotate to make it horizontal
+            ground.position.y = 0; // Place it just below the model
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            const loader = new GLTFLoader();
+            loader.load(
+              'EL2205.glb',
+                function (gltf) {
+                    model = gltf.scene;
+                    model.scale.set(0.08, 0.08, 0.08);
+                    model.rotation.y = THREE.MathUtils.degToRad(30);
+                    scene.add(model);
+
+                    model.traverse((child) => {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                        }
+                    });
+
+                    mixer = new THREE.AnimationMixer(model);
+                    gltf.animations.forEach(clip => {
+                        actions[clip.name] = mixer.clipAction(clip);
+                    });
+
+                    if (actions.idle) {
+                        activeAction = actions.idle;
+                        activeAction.play();
+                    }
+
+                    document.getElementById('loading-screen').style.display = 'none';
+                    modelLoaded = true;
+                    waveLoop = setInterval(() => transitionToAnimation('wave', 1, false, 'idle'), 1000);
+
+                    
+                },
+                function (xhr) {
+                    const progress = (xhr.loaded / xhr.total) * 100;
+                    document.getElementById('progress-bar').style.width = progress + '%';
+                    document.getElementById('loading-text').innerText = `Loading... ${Math.round(progress)}%`; // Show progress percentage
+                },
+                function (error) {
+                    console.error('Error loading model:', error);
+                }
+            );
+
+            animate();
+            container.addEventListener('click', (event) => onModelClick(event));
+            window.addEventListener('scroll', () => transitionToAnimation('backflip', 0.5, false, 'idle'));
+            window.addEventListener('touchstart', (e) => onSwipeStart(e), { passive: true });
+            window.addEventListener('touchmove', (e) => onSwipeMove(e), { passive: true });
+        }
+
+
+
+
+
+function transitionToAnimation(animationName, duration, loop = false, returnTo = null) {
+    if (!actions[animationName] || activeAction === actions[animationName]) return;
+
+    //console.log(`Starting animation: ${animationName}`);
+
+    previousAction = activeAction;
+    activeAction = actions[animationName];
+
+    let actualDuration = activeAction.getClip().duration;
+
+    // Adjust specific animation durations
+    if (animationName === 'sweat') {
+        actualDuration = Math.max(0, actualDuration - 6.3);
+        //console.log(`Backflip adjusted duration: ${actualDuration} sec`);
+    }
+    if (animationName === 'idle') {
+        actualDuration = Math.max(0, actualDuration - 6);
+        //console.log(`Idle adjusted duration: ${actualDuration} sec`);
+    }
+    if (animationName === 'jog') {
+        actualDuration = Math.max(0, actualDuration - 5);
+        //console.log(`Wave adjusted duration: ${actualDuration} sec`);
+    }
+    if (animationName === 'run') {
+        actualDuration = Math.max(0, actualDuration - 1.5);
+        //console.log(`Dodge adjusted duration: ${actualDuration} sec`);
+    }
+
+    if (previousAction) previousAction.fadeOut(duration);
+    activeAction.reset().fadeIn(duration).play();
+
+    if (loop) {
+        activeAction.setLoop(THREE.LoopRepeat, Infinity);
+    }
+    activeAction.clampWhenFinished = true;
+
+    // Stop waveLoop if transitioning to another animation
+    if (animationName !== "idle") {
+        console.log("Stopping idle loop.");
+        clearInterval(waveLoop);
+        waveLoop = null;
+    }
+
+    // Log when animation is expected to end
+    //console.log(`Animation "${animationName}" will end in ~${actualDuration.toFixed(2)} sec`);
+
+    if (returnTo) {
+        setTimeout(() => {
+            if (activeAction === actions[animationName]) {
+                //console.log(`Transitioning from "${animationName}" to "${returnTo}"`);
+                transitionToAnimation(returnTo, 0.5);
+            }
+        }, actualDuration * 1000);
+    }
+
+    // Restart waveLoop only when returning to idle
+    if (returnTo === 'idle') {
+        setTimeout(() => {
+            if (!waveLoop) {
+                //console.log("Restarting wave loop as idle state.");
+                waveLoop = setInterval(() => transitionToAnimation('wave', 1, false, 'idle'), 5000);
+            }
+        }, actualDuration * 1000);
+    }
+
+    // Listen for animation completion
+    activeAction.getMixer().addEventListener('finished', (e) => {
+        if (e.action === activeAction) {
+            //console.log(`Animation "${animationName}" finished.`);
+        }
+    });
+}
+
+
+
+
+
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (mixer) mixer.update(clock.getDelta());
+            renderer.render(scene, camera);
+        }
+
+
+
+
+
+    function enableScroll() {
+        document.body.style.overflow = "auto";
+        console.log("Scrolling enabled.");
+        document.getElementById("part25").scrollIntoView({ behavior: "smooth" });
+    }
+
+
+
+    // Function to stop all running animations
+    function stopAllAnimations() {
+        console.log("Stopping all animations...");
+        clearInterval(prayLoop);
+        clearInterval(waveLoop);
+        clearInterval(kissLoop);
+    }
+
+    // Observe part7 to start the "kiss" animation when it enters viewport
+
+
+ 
+
+
+
+
+//SECTION END
+    </script>
+    <style>
+        body { 
+    margin: 0; 
+    overflow-x: hidden; /* Prevents horizontal scroll but allows vertical scrolling */
+    font-family: Arial, sans-serif; 
+}
+
+        #loading-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: black; color: white; display: flex;
+            justify-content: center; align-items: center;
+            flex-direction: column; font-size: 20px;
+        }
+        #progress-bar {
+            width: 0%; height: 5px; background: lime;
+        }
+        #loading-text {
+            margin-top: 10px; font-size: 16px;
+        }
+        #model-container {
+            position: fixed;
+            bottom: 7vh;
+            width: 25vw;
+            right:51.5vw;
+            height: 50vh;
+            z-index: 10;
+        }
+
+        canvas {
+            position: fixed;
+            bottom: -7vh; 
+            left: 0vw;
+            width: 100%;
+            z-index: 1;
+        }
+        button {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            font-size: 16px;
+            background: blue;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        #retry-button {
+            background: red;
+        }
+        h2 {
+                margin-left: 12vw;
+    max-width: 70vw;
+    
+    margin-top: 13vh;
+    font-size: 60px;
+	                                                                 font-family: bebas neue;
+                                                
+	background: linear-gradient(45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+	background-size: 300%;
+	-webkit-background-clip: text;
+	background-clip: text;
+	-webkit-text-fill-color: transparent;
+	animation: animate 5s ease-in-out infinite;
+	text-align: center;
+	
+}
+        h3 {
+                margin-left: 12vw;
+    max-width: 70vw;
+    
+    margin-top: 13vh;
+    font-size: 35px;
+	                         font-family: 'Cursive standard', sans-serif;                                        
+                                                
+	background: linear-gradient(45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+	background-size: 300%;
+	-webkit-background-clip: text;
+	background-clip: text;
+	-webkit-text-fill-color: transparent;
+	animation: animate 5s ease-in-out infinite;
+	text-align: center;
+	
+}
+h2 span{
+font-family: 'Cursive standard', sans-serif;
+                                                
+  font-weight: 700;
+  font-size: 30px;
+   
+  display: block;
+}
+
+h3 span{
+
+font-family: bebas neue;
+                                                
+  font-weight: 700;
+  font-size: 35px;
+   
+  display: block;
+}
+@keyframes animate{
+  0%{
+    background-position: 0 50%;
+  }
+  50%{
+    background-position: 100% 50%;
+  }
+  100%{
+    background-position: 0 50%;
+  }
+}
+#part1 {
+    height:max-content;
+}
+#part2 {
+    height:max-content;
+}
+#part3 {
+    height:max-content;
+}
+#part4 {
+    height:max-content;
+}
+#part5 {
+    height:max-content;
+}
+#part6 {
+    height:max-content;
+}
+#part7 {
+    height:max-content;
+}
+        
+    </style>
+</head>
+<body>
+<style>
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+          z-index:80;
+        }
+
+        .corner-ribbon {
+            position: absolute;
+           top: 4vh;
+    right: -10vw;
+    width: 78vw;
+    height: 5vh;
+            background: red;
+            clip-path: polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%, 10% 50%);
+            outline: 2px solid yellow;
+        }
+
+        .vertical-ribbon {
+            position: absolute;
+            top: -13vh;
+    right: 8vw;
+    width: 10vw;
+    height: 110vh;
+            background: red;
+            /* Inverted corners */
+            clip-path: polygon(0% 10%, 50% 0%, 100% 10%, 100% 100%, 50% 90%, 0% 100%);
+            outline: 2px solid yellow;
+        }
+
+        .inner-ribbon-horizontal {
+            position: absolute;
+                top: 5.8vh;
+    right: 0vw;
+    width: 48vw;
+    height: 1vh;
+            background: yellow;
+            outline: 2px solid red;
+        }
+
+        .inner-ribbon-vertical {
+            position: absolute;
+            top: -10vh;
+    right: 11.8vw;
+    width: 2vw;
+    height: 95vh;
+            background: yellow;
+            outline: 2px solid red;
+        }
+
+        .heart {
+            position: absolute;
+            top: 5px;
+    right: 0vw;
+    width: 28vw;
+    height: 16vh;
+            background: #ff69b4;
+            clip-path: polygon(50% 15%, 61% 6%, 75% 3%, 87% 7%, 94% 19%, 93% 33%, 84% 45%, 50% 75%, 16% 45%, 7% 33%, 6% 19%, 13% 7%, 25% 3%, 39% 6%);
+            outline: 1vh solid black; /* Added black outline */
+        }
+    </style>
+
+
+</body>
+</html>
