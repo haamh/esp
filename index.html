@@ -3,11 +3,20 @@
 
 <head>
     <title>ESP32 Health Monitor + 3D Model</title>
-<script type="module">
-    import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.172.0/three.tsl.js';
-    import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
-</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: transparent;
+        }
 
+        #modelContainer {
+            width: 800px;
+            height: 600px;
+        }
+    </style>
 </head>
 
 <body>
@@ -20,58 +29,73 @@
     <p>Steps: <span id="steps">0</span></p>
     <p>GSR: <span id="gsr">0</span></p>
 
-    <!-- Container for the 3D model -->
-    <div id="modelContainer" style="width: 800px; height: 600px;"></div>
+    <div id="modelContainer"></div>
 
     <script>
         const serviceUUID = "12345678-1234-5678-1234-56789abcdef0";
         const characteristicUUID = "abcdef01-1234-5678-1234-56789abcdef1";
         let characteristic;
 
-        let scene, camera, renderer, mixer, model, animations = {};
-        
-        // ✅ Initialize Three.js Scene
+        let scene, camera, renderer, loader, model, mixer, animations = {};
+
         function init3DModel() {
             const container = document.getElementById('modelContainer');
 
             scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
             camera.position.set(0, 2, 5);
 
-            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
             renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
             container.appendChild(renderer.domElement);
 
-            // Lighting
-            const light = new THREE.HemisphereLight(0xffffff, 0x444444);
-            light.position.set(0, 10, 0);
+            const light = new THREE.DirectionalLight(0xffffff, 3);
+            light.position.set(2, 5, 5);
+            light.castShadow = true;
             scene.add(light);
 
-            // Load GLTF Model
-            const loader = new THREE.GLTFLoader();
+            const ambientLight = new THREE.AmbientLight(0x404040, 2);
+            scene.add(ambientLight);
+
+            const ground = new THREE.Mesh(
+                new THREE.PlaneGeometry(10, 10),
+                new THREE.ShadowMaterial({ opacity: 0.5 })
+            );
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -1;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            loader = new THREE.GLTFLoader();
             loader.load('EL2205.glb', (gltf) => {
                 model = gltf.scene;
                 scene.add(model);
                 mixer = new THREE.AnimationMixer(model);
 
-                // Store animations by name
+                model.position.set(0, -1, 0);
+                model.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                });
+
                 gltf.animations.forEach((clip) => {
                     animations[clip.name.toLowerCase()] = mixer.clipAction(clip);
                 });
 
-                playAnimation('idle'); // Default to idle animation
+                playAnimation('idle');
                 animate();
             });
         }
 
-        // ✅ Animate the Scene
         function animate() {
             requestAnimationFrame(animate);
-            if (mixer) mixer.update(0.02); // Update animations
+            if (mixer) mixer.update(0.016);
             renderer.render(scene, camera);
         }
 
-        // ✅ Play Animation by Name
         function playAnimation(name) {
             Object.values(animations).forEach(action => action.stop());
             if (animations[name]) {
@@ -82,7 +106,6 @@
             }
         }
 
-        // ✅ Connect to Bluetooth Device
         async function connectBluetooth() {
             try {
                 const device = await navigator.bluetooth.requestDevice({
@@ -104,39 +127,34 @@
             }
         }
 
-        // ✅ Handle Incoming Data
         function handleData(event) {
             try {
                 let data = new TextDecoder().decode(event.target.value);
                 let json = JSON.parse(data);
 
-                // Update UI
                 document.getElementById("bpm").textContent = json.BPM;
                 document.getElementById("avgBpm").textContent = json.AvgBPM;
                 document.getElementById("steps").textContent = json.Steps;
                 document.getElementById("gsr").textContent = json.GSR;
 
-                // Update Model Animation
                 updateAnimation(json.BPM, json.Steps, json.GSR);
             } catch (err) {
                 console.error("Error parsing JSON data:", err);
             }
         }
 
-        // ✅ Logic to Switch Animations
         function updateAnimation(bpm, steps, gsr) {
             if (bpm >= 120) {
                 playAnimation('run');
             } else if (bpm >= 70 && steps > 0) {
                 playAnimation('jog');
-            } else if (gsr > 1000) { // Assuming GSR > 1000 indicates stress
+            } else if (gsr > 1000) {
                 playAnimation('sweat');
             } else {
                 playAnimation('idle');
             }
         }
 
-        // Start the 3D model on load
         window.onload = init3DModel;
 
     </script>
