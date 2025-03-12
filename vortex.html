@@ -88,7 +88,7 @@
                 (gltf) => {
                     model = gltf.scene;
                     model.scale.set(0.5, 0.5, 0.5);
-                    model.rotation.y = THREE.MathUtils.degToRad(30);
+                    model.rotation.y = THREE.MathUtils.degToRad(-30);
                     scene.add(model);
 
                     model.traverse((child) => {
