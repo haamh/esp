@@ -22,8 +22,8 @@
     <p>GSR: <span id="gsr">0</span></p>
 
     <script type="module">
-        import * as THREE from 'https://cdn.skypack.dev/three@0.129.0/build/three.module.js';
-        import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.129.0/examples/jsm/loaders/GLTFLoader.js';
+       // import * as THREE from 'https://cdn.skypack.dev/three@0.129.0/build/three.module.js';
+        //import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.129.0/examples/jsm/loaders/GLTFLoader.js';
 
         let scene, camera, renderer, model, mixer;
         const clock = new THREE.Clock();
@@ -112,7 +112,7 @@
 
             const loader = new GLTFLoader();
             loader.load(
-                'haamh.glb',
+                'EL2205.glb',
                 function (gltf) {
                     model = gltf.scene;
                     model.scale.set(0.08, 0.08, 0.08);
