@@ -55,7 +55,7 @@
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-            document.getElementById("scene-container").appendChild(renderer.domElement);
+            document.getElementById("modelContainer").appendChild(renderer.domElement);
 
             const directionalLight = new THREE.DirectionalLight(0xffffff, 4);
             directionalLight.position.set(2, 5, 5);
