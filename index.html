@@ -2,181 +2,50 @@
 <html lang="en">
 
 <head>
-    <title>ESP32 Health Monitor + 3D Model</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>ESP32 Health Monitor</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background-color: transparent;
-        }
-
-        #modelContainer {
-            width: 800px;
-            height: 600px;
-        }
-    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/loaders/GLTFLoader.js"></script>
 </head>
 
 <body>
     <h2>ESP32 Health Monitor</h2>
     <button onclick="connectBluetooth()">Connect to ESP32</button>
     <p id="status">Status: Disconnected</p>
-
     <p>BPM: <span id="bpm">0</span></p>
     <p>Avg BPM: <span id="avgBpm">0</span></p>
     <p>Steps: <span id="steps">0</span></p>
     <p>GSR: <span id="gsr">0</span></p>
 
-    <div id="modelContainer"></div>
+    <script type="module">
+        import * as THREE from 'https://cdn.skypack.dev/three@0.129.0/build/three.module.js';
+        import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.129.0/examples/jsm/loaders/GLTFLoader.js';
 
-    <script>
-        const serviceUUID = "12345678-1234-5678-1234-56789abcdef0";
-        const characteristicUUID = "abcdef01-1234-5678-1234-56789abcdef1";
-        let characteristic;
+        let scene, camera, renderer, model, mixer;
+        const clock = new THREE.Clock();
+        let actions = {};
+        let activeAction, previousAction;
+        let modelLoaded = false;
+        let waveLoop;
+        let prayLoop;
+        let kissLoop;
 
-        let scene, camera, renderer, loader, model, mixer, animations = {};
-
-        function initScene() {
-            console.log("Initializing 3D scene...");
-            scene = new THREE.Scene();
-            scene.scale.set(2, 2, 2);
-            scene.position.set(-0.46, -1.4, 0);
-
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 500);
-            camera.position.set(0, 0, 5);  // This seems fine, as the camera is placed 5 units away on the Z-axis.
-            camera.lookAt(model.position);  // Make sure camera looks at the model.
-
-            camera.updateProjectionMatrix();
-
-            renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-            renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setClearColor(0x000000, 0);
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-            document.getElementById("modelContainer").appendChild(renderer.domElement);
-
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 4);
-            directionalLight.position.set(2, 5, 5);
-            directionalLight.castShadow = true;
-            scene.add(directionalLight);
-
-            const ambientLight = new THREE.AmbientLight(0x404040, 2);
-            scene.add(ambientLight);
-
-            const ground = new THREE.Mesh(
-                new THREE.PlaneGeometry(10, 10),
-                new THREE.ShadowMaterial({ opacity: 0.5 })
-            );
-            ground.rotation.x = -Math.PI / 2;
-            ground.position.y = -1;
-            ground.receiveShadow = true;
-            scene.add(ground);
-
-            loader = new THREE.GLTFLoader();
-            loadBaseModel("EL2205.glb");
-
-
-        }
-
-        function loadBaseModel(file) {
-            loader.load(file, (gltf) => {
-                model = gltf.scene;
-                mixer = new THREE.AnimationMixer(model);
-
-                model.position.set(0, -1, 0);
-                model.rotation.y = THREE.MathUtils.degToRad(25);
-                scene.add(model);
-                camera.lookAt(model.position);
-
-                model.traverse((child) => {
-                    if (child.isMesh) {
-                        child.castShadow = true;
-                        child.receiveShadow = true;
-                    }
-                });
-
-                idleAction = mixer.clipAction(gltf.animations[0]);
-                idleAction.play();
-                console.log("Base model loaded:", file);
-            });
-        }
-
-
-        function animate() {
-            requestAnimationFrame(animate);
-            if (mixer) mixer.update(0.016);
-            
-            // 🔥 Ensure model remains visible each frame
-            if (model) {
-                model.visible = true;
-                model.traverse((child) => { 
-                    if (child.isMesh) {
-                        child.visible = true;
-                    }
-                });
-            }
-
-            renderer.render(scene, camera);
-        }
-
-       
-
-        function playAnimation(animFile) {
-            loader.load(animFile, (gltf) => {
-                console.log("Loaded animation from:", animFile);
-                
-                if (gltf.animations.length > 0) {
-                    if (activeAction) {
-                        activeAction.stop();
-                    }
-
-                    let newClip = gltf.animations[0];
-                    activeAction = mixer.clipAction(newClip, model);
-                    activeAction.setLoop(THREE.LoopOnce);
-                    activeAction.clampWhenFinished = true;
-                    activeAction.play();
-
-                    // 🔥 Ensure model stays visible
-                    model.visible = true;
-                    model.traverse((child) => { child.visible = true; });
-
-                    // 🔥 Debugging Information
-                    console.log("Animation clip name:", newClip.name);
-                    console.log("Affected bones:", newClip.tracks.map(track => track.name));
-                    console.log("Model visibility:", model.visible);
-                    console.log("Model position:", model.position);
-                    console.log("Model scale:", model.scale);
-                    console.log("Model rotation:", model.rotation);
-                    console.log("Playing animation:", animFile);
-
-                    mixer.addEventListener('finished', (e) => {
-                        if (e.action === activeAction) {
-                            idleAction.reset().play();
-                        }
-                    });
-                } else {
-                    console.warn("No animations found in:", animFile);
-                }
-            }, undefined, (error) => {
-                console.error("Error loading animation:", error);
-            });
-        }
         async function connectBluetooth() {
             try {
                 const device = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
-                    optionalServices: [serviceUUID]
+                    optionalServices: ['12345678-1234-5678-1234-56789abcdef0']
                 });
 
                 const server = await device.gatt.connect();
                 document.getElementById("status").textContent = "Status: Connected";
 
-                const service = await server.getPrimaryService(serviceUUID);
-                characteristic = await service.getCharacteristic(characteristicUUID);
+                const service = await server.getPrimaryService('12345678-1234-5678-1234-56789abcdef0');
+                const characteristic = await service.getCharacteristic('abcdef01-1234-5678-1234-56789abcdef1');
 
                 characteristic.addEventListener("characteristicvaluechanged", handleData);
                 await characteristic.startNotifications();
@@ -189,35 +58,137 @@
         function handleData(event) {
             try {
                 let data = new TextDecoder().decode(event.target.value);
-                let json = JSON.parse(data);
+                console.log("Received Data:", data);
 
+                let json = JSON.parse(data);
                 document.getElementById("bpm").textContent = json.BPM;
                 document.getElementById("avgBpm").textContent = json.AvgBPM;
                 document.getElementById("steps").textContent = json.Steps;
                 document.getElementById("gsr").textContent = json.GSR;
 
-                updateAnimation(json.BPM, json.Steps, json.GSR);
+                // Trigger the appropriate animation based on the data
+                if (json.BPM > 120) {
+                    transitionToAnimation('run', 1, true, 'idle'); // BPM is high, run animation
+                } else if (json.BPM > 90) {
+                    transitionToAnimation('jog', 1, true, 'idle'); // BPM is moderate, jog animation
+                } else if (json.Steps > 1000) {
+                    transitionToAnimation('sweat', 1, true, 'idle'); // Many steps, sweat animation
+                } else {
+                    transitionToAnimation('idle', 1, true, 'jog'); // Default to idle if nothing else
+                }
             } catch (err) {
                 console.error("Error parsing JSON data:", err);
             }
         }
 
-        function updateAnimation(bpm, steps, gsr) {
-            if (bpm >= 120) {
-                playAnimation('run');
-            } else if (bpm >= 70 && steps > 0) {
-                playAnimation('jog');
-            } else if (gsr > 1000) {
-                playAnimation('sweat');
-            } else {
-                playAnimation('idle');
+        function init() {
+            const container = document.createElement('div');
+            container.id = 'model-container';
+            document.body.appendChild(container);
+
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 1, 3);
+
+            renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFShadowMap;
+            renderer.domElement.style.pointerEvents = 'none'; 
+            document.body.appendChild(renderer.domElement);
+
+            renderer.domElement.style.position = 'fixed';
+            renderer.domElement.style.bottom = '-7vh'; 
+            renderer.domElement.style.left = '-15vw';
+            renderer.domElement.style.zIndex = '1';
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 4);
+            directionalLight.position.set(2, 5, 5);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1);
+            scene.add(ambientLight);
+
+            const loader = new GLTFLoader();
+            loader.load(
+                'haamh.glb',
+                function (gltf) {
+                    model = gltf.scene;
+                    model.scale.set(0.08, 0.08, 0.08);
+                    model.rotation.y = THREE.MathUtils.degToRad(30);
+                    scene.add(model);
+
+                    model.traverse((child) => {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                        }
+                    });
+
+                    mixer = new THREE.AnimationMixer(model);
+                    gltf.animations.forEach(clip => {
+                        actions[clip.name] = mixer.clipAction(clip);
+                    });
+
+                    if (actions.idle) {
+                        activeAction = actions.idle;
+                        activeAction.play();
+                    }
+
+                    document.getElementById('loading-screen').style.display = 'none';
+                    modelLoaded = true;
+                },
+                function (xhr) {
+                    const progress = (xhr.loaded / xhr.total) * 100;
+                    document.getElementById('progress-bar').style.width = progress + '%';
+                    document.getElementById('loading-text').innerText = `Loading... ${Math.round(progress)}%`; 
+                },
+                function (error) {
+                    console.error('Error loading model:', error);
+                }
+            );
+
+            animate();
+        }
+
+        function transitionToAnimation(animationName, duration, loop = false, returnTo = null) {
+            if (!actions[animationName] || activeAction === actions[animationName]) return;
+
+            previousAction = activeAction;
+            activeAction = actions[animationName];
+
+            let actualDuration = activeAction.getClip().duration;
+            if (previousAction) previousAction.fadeOut(duration);
+            activeAction.reset().fadeIn(duration).play();
+
+            if (loop) {
+                activeAction.setLoop(THREE.LoopRepeat, Infinity);
+            }
+            activeAction.clampWhenFinished = true;
+
+            if (returnTo) {
+                setTimeout(() => {
+                    if (activeAction === actions[animationName]) {
+                        transitionToAnimation(returnTo, 0.5);
+                    }
+                }, actualDuration * 1000);
             }
         }
 
-        window.onload =  initScene();
+        function animate() {
+            requestAnimationFrame(animate);
+            if (mixer) mixer.update(clock.getDelta());
+            renderer.render(scene, camera);
+        }
 
+        window.addEventListener('DOMContentLoaded', init);
+        window.addEventListener('resize', () => {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+        });
     </script>
-
 </body>
 
 </html>
