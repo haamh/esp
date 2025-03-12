@@ -1,27 +1,45 @@
-<script type="module">
-    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.174.0/build/three.module.js';
-    import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.174.0/examples/jsm/loaders/GLTFLoader.js';
+<!DOCTYPE html>
+<html lang="en">
 
-    console.log(THREE); // Check if THREE.js is loaded correctly
+<head>
+    <title>Three.js Import Fix</title>
+</head>
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+<body>
+    <script type="module">
+        // Importing Three.js and GLTFLoader correctly
+        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.174.0/build/three.module.js';
+        import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.174.0/examples/jsm/loaders/GLTFLoader.js';
 
-    // Load the GLTF Model
-    const loader = new GLTFLoader();
-    loader.load('your-model.glb', (gltf) => {
-        scene.add(gltf.scene);
-        console.log('Model Loaded:', gltf);
-    });
+        console.log('Three.js loaded:', THREE);
 
-    camera.position.z = 5;
+        // Basic Three.js scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
 
-    function animate() {
-        requestAnimationFrame(animate);
-        renderer.render(scene, camera);
-    }
-    animate();
-</script>
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Load a GLTF model
+        const loader = new GLTFLoader();
+        loader.load('your-model.glb', (gltf) => {
+            scene.add(gltf.scene);
+            console.log('Model loaded successfully:', gltf);
+        }, undefined, (error) => {
+            console.error('Error loading model:', error);
+        });
+
+        camera.position.z = 5;
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
+
+</html>
