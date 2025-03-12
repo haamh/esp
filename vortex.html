@@ -68,7 +68,7 @@
 
             const loader = new GLTFLoader();
             loader.load(
-              'EL2205.glb',
+                'EL2205.glb',
                 function (gltf) {
                     model = gltf.scene;
                     model.scale.set(0.08, 0.08, 0.08);
@@ -92,7 +92,7 @@
                         activeAction.play();
                     }
 
-                    document.getElementById('loading-screen').style.display = 'none';
+                   
                     modelLoaded = true;
                     waveLoop = setInterval(() => transitionToAnimation('wave', 1, false, 'idle'), 1000);
 
@@ -380,7 +380,7 @@ font-family: bebas neue;
             left: 0;
             width: 100%;
             height: 100%;
-            pointer-events: none;
+            
           z-index:80;
         }
 
@@ -439,6 +439,6 @@ font-family: bebas neue;
         }
     </style>
 
-
+<div id="model-container"></div>
 </body>
 </html>
