@@ -2,7 +2,9 @@
 <html lang="en">
 
 <head>
-    <title>ESP32 Health Monitor</title>
+    <title>ESP32 Health Monitor + 3D Model</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r160/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/GLTFLoader.js"></script>
 </head>
 
 <body>
@@ -15,11 +17,69 @@
     <p>Steps: <span id="steps">0</span></p>
     <p>GSR: <span id="gsr">0</span></p>
 
+    <!-- Container for the 3D model -->
+    <div id="modelContainer" style="width: 800px; height: 600px;"></div>
+
     <script>
         const serviceUUID = "12345678-1234-5678-1234-56789abcdef0";
         const characteristicUUID = "abcdef01-1234-5678-1234-56789abcdef1";
         let characteristic;
 
+        let scene, camera, renderer, mixer, model, animations = {};
+        
+        // ✅ Initialize Three.js Scene
+        function init3DModel() {
+            const container = document.getElementById('modelContainer');
+
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(0, 2, 5);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+
+            // Lighting
+            const light = new THREE.HemisphereLight(0xffffff, 0x444444);
+            light.position.set(0, 10, 0);
+            scene.add(light);
+
+            // Load GLTF Model
+            const loader = new THREE.GLTFLoader();
+            loader.load('EL2205.glb', (gltf) => {
+                model = gltf.scene;
+                scene.add(model);
+                mixer = new THREE.AnimationMixer(model);
+
+                // Store animations by name
+                gltf.animations.forEach((clip) => {
+                    animations[clip.name.toLowerCase()] = mixer.clipAction(clip);
+                });
+
+                playAnimation('idle'); // Default to idle animation
+                animate();
+            });
+        }
+
+        // ✅ Animate the Scene
+        function animate() {
+            requestAnimationFrame(animate);
+            if (mixer) mixer.update(0.02); // Update animations
+            renderer.render(scene, camera);
+        }
+
+        // ✅ Play Animation by Name
+        function playAnimation(name) {
+            Object.values(animations).forEach(action => action.stop());
+            if (animations[name]) {
+                animations[name].reset().play();
+                console.log(`Playing: ${name}`);
+            } else {
+                console.warn(`Animation '${name}' not found.`);
+            }
+        }
+
+        // ✅ Connect to Bluetooth Device
         async function connectBluetooth() {
             try {
                 const device = await navigator.bluetooth.requestDevice({
@@ -41,23 +101,43 @@
             }
         }
 
+        // ✅ Handle Incoming Data
         function handleData(event) {
             try {
                 let data = new TextDecoder().decode(event.target.value);
-                console.log("Received Data:", data);
-
                 let json = JSON.parse(data);
 
+                // Update UI
                 document.getElementById("bpm").textContent = json.BPM;
                 document.getElementById("avgBpm").textContent = json.AvgBPM;
                 document.getElementById("steps").textContent = json.Steps;
                 document.getElementById("gsr").textContent = json.GSR;
+
+                // Update Model Animation
+                updateAnimation(json.BPM, json.Steps, json.GSR);
             } catch (err) {
                 console.error("Error parsing JSON data:", err);
             }
         }
+
+        // ✅ Logic to Switch Animations
+        function updateAnimation(bpm, steps, gsr) {
+            if (bpm >= 120) {
+                playAnimation('run');
+            } else if (bpm >= 70 && steps > 0) {
+                playAnimation('jog');
+            } else if (gsr > 1000) { // Assuming GSR > 1000 indicates stress
+                playAnimation('sweat');
+            } else {
+                playAnimation('idle');
+            }
+        }
+
+        // Start the 3D model on load
+        window.onload = init3DModel;
+
     </script>
 
- </body>
+</body>
 
 </html>
