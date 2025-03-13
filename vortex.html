@@ -39,10 +39,12 @@
 
             // Renderer setup
             renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setSize(300, 400);
+            //renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFShadowMap;
-
+            renderer.domElement.style.height = window.innerHeight;
+            renderer.domElement.style.weight = window.innerWidth;
             renderer.domElement.style.pointerEvents = 'none';
             renderer.domElement.style.position = 'fixed';
             renderer.domElement.style.bottom = '-7vh';
