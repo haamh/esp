@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -40,14 +41,15 @@
         }
     </style>
 </head>
+
 <body>
 
 <div id="overlay">
-    <div id="connect-btn">CONNECT</div>
-    <div class="status-item">Disconeccted : Status <span class="status-icon">📊</span></div>
-    <div class="status-item">13 : Steps <span class="status-icon">👣</span></div>
-    <div class="status-item">MED : Sweat Lvl <span class="status-icon">💧</span></div>
-    <div class="status-item">72 : Avg BPM <span class="status-icon">❤️</span></div>
+    <div id="connect-btn" onclick="connectBluetooth()">CONNECT</div>
+    <div class="status-item" id="status">Disconnected : Status <span class="status-icon">📊</span></div>
+    <div class="status-item">Steps: <span id="steps">0</span> <span class="status-icon">👣</span></div>
+    <div class="status-item">GSR: <span id="gsr">0</span> <span class="status-icon">💧</span></div>
+    <div class="status-item">Avg BPM: <span id="avgBpm">0</span> <span class="status-icon">❤️</span></div>
 </div>
 
 <script type="module">
@@ -155,37 +157,45 @@
         );
     }
 
-    function transitionToAnimation(animationName, duration, loop = false, returnTo = null) {
-        if (!actions[animationName] || activeAction === actions[animationName]) return;
-
-        previousAction = activeAction;
-        activeAction = actions[animationName];
-
-        if (previousAction) previousAction.fadeOut(duration);
-        activeAction.reset().fadeIn(duration).play();
-
-        if (loop) {
-            activeAction.setLoop(THREE.LoopRepeat, Infinity);
-        }
-
-        activeAction.clampWhenFinished = true;
-
-        if (returnTo) {
-            const actualDuration = activeAction.getClip().duration;
-            setTimeout(() => {
-                if (activeAction === actions[animationName]) {
-                    transitionToAnimation(returnTo, 0.5);
-                }
-            }, actualDuration * 1000);
-        }
-    }
-
     function animate() {
         requestAnimationFrame(animate);
         if (mixer) mixer.update(clock.getDelta());
         renderer.render(scene, camera);
     }
 
+    async function connectBluetooth() {
+        try {
+            const serviceUUID = "12345678-1234-5678-1234-56789abcdef0";
+            const characteristicUUID = "abcdef01-1234-5678-1234-56789abcdef1";
+
+            const device = await navigator.bluetooth.requestDevice({
+                acceptAllDevices: true,
+                optionalServices: [serviceUUID]
+            });
+
+            const server = await device.gatt.connect();
+            document.getElementById("status").textContent = "Status: Connected";
+
+            const service = await server.getPrimaryService(serviceUUID);
+            const characteristic = await service.getCharacteristic(characteristicUUID);
+
+            characteristic.addEventListener("characteristicvaluechanged", handleData);
+            await characteristic.startNotifications();
+        } catch (error) {
+            console.error("Bluetooth connection failed", error);
+        }
+    }
+
+    function handleData(event) {
+        let data = new TextDecoder().decode(event.target.value);
+        let json = JSON.parse(data);
+
+        document.getElementById("steps").textContent = json.Steps;
+        document.getElementById("avgBpm").textContent = json.AvgBPM;
+        document.getElementById("gsr").textContent = json.GSR;
+    }
 </script>
+
 </body>
+
 </html>
