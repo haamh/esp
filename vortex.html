@@ -185,6 +185,9 @@
             console.error("Bluetooth connection failed", error);
         }
     }
+    // Add this line at the end of the script where the function is defined
+    window.connectBluetooth = connectBluetooth;
+
 
     function handleData(event) {
         let data = new TextDecoder().decode(event.target.value);
