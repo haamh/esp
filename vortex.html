@@ -34,12 +34,12 @@
             scene = new THREE.Scene();
 
             // Camera setup
-            camera = new THREE.PerspectiveCamera(50, 300 / 400, 0.1, 100);
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
             camera.position.set(0, 1, 3);
 
             // Renderer setup
             renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-            renderer.setSize(300, 400);
+            renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFShadowMap;
 
