@@ -42,7 +42,8 @@
             renderer.setSize(300, 400);
             //renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFShadowMap;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Higher quality, softer shadows
+
             renderer.domElement.style.height = '120vh';
             renderer.domElement.style.width = '60vh';
             renderer.domElement.style.pointerEvents = 'none';
@@ -54,7 +55,10 @@
             document.body.appendChild(renderer.domElement);
 
             // Lighting
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 4);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 3);
+            directionalLight.shadow.mapSize.width = 2048; // Increase from 1024 (higher quality)
+            directionalLight.shadow.mapSize.height = 2048;
+
             directionalLight.position.set(2, 5, 5);
             directionalLight.castShadow = true;
             scene.add(directionalLight);
@@ -90,7 +94,7 @@
                 (gltf) => {
                     model = gltf.scene;
                     model.scale.set(1, 1, 1);
-                    model.rotation.y = THREE.MathUtils.degToRad(-60);
+                    model.rotation.y = THREE.MathUtils.degToRad(-90);
                     scene.add(model);
 
                     model.traverse((child) => {
