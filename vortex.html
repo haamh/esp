@@ -48,7 +48,7 @@
     <div id="connect-btn" onclick="connectBluetooth()">CONNECT</div>
     <div class="status-item" id="status">Disconnected : Status <span class="status-icon">📊</span></div>
     <div class="status-item">Steps: <span id="steps">0</span> <span class="status-icon">👣</span></div>
-    <div class="status-item">GSR: <span id="gsr">0</span> <span class="status-icon">💧</span></div>
+    <div class="status-item">Stress/Sweat Level: <span id="gsr">0</span> <span class="status-icon">💧</span></div>
     <div class="status-item">Avg BPM: <span id="avgBpm">0</span> <span class="status-icon">❤️</span></div>
 </div>
 
@@ -185,18 +185,74 @@
             console.error("Bluetooth connection failed", error);
         }
     }
-    // Add this line at the end of the script where the function is defined
-    window.connectBluetooth = connectBluetooth;
 
+    window.connectBluetooth = connectBluetooth;
 
     function handleData(event) {
         let data = new TextDecoder().decode(event.target.value);
         let json = JSON.parse(data);
 
+        // Parsing the motion, BPM, and GSR data
+        let motion = json.Motion;
+        let bpm = json.AvgBPM;
+        let gsr = json.GSR;
+
+        // Update UI
         document.getElementById("steps").textContent = json.Steps;
-        document.getElementById("avgBpm").textContent = json.AvgBPM;
-        document.getElementById("gsr").textContent = json.GSR;
+        document.getElementById("avgBpm").textContent = bpm;
+
+        // Update GSR as Stress/Sweat Level
+        let stressLevel = "Relaxed";
+        if (gsr > 1500) {
+            stressLevel = "Relaxed";
+        } else if (gsr >= 1000) {
+            stressLevel = "Warming Up";
+        } else if (gsr < 800) {
+            stressLevel = "Hyperactive";
+        }
+
+        document.getElementById("gsr").textContent = stressLevel;
+
+        // Motion and animation handling
+        if (motion === "moving") {
+            if (bpm > 90) {
+                transitionToAnimation('run', 0.5, true, 'jog');
+            } else {
+                transitionToAnimation('jog', 0.5, true, 'run');
+            }
+
+            // If stress level is "Warming Up" or "Hyperactive", play sweat animation and use appropriate motion
+            if (stressLevel === "Warming Up" || stressLevel === "Hyperactive") {
+                if (stressLevel === "Warming Up") {
+                    transitionToAnimation('jog', 0.5, true, 'run');
+                } else {
+                    transitionToAnimation('run', 0.5, true, 'jog');
+                }
+                playSweatAnimation();
+            }
+        } else {
+            transitionToAnimation('idle', 0.5, false, 'jog');
+        }
     }
+
+    // Transition between animations based on conditions
+    function transitionToAnimation(name, speed, loop, stopOther) {
+        if (activeAction && activeAction.isRunning()) {
+            activeAction.stop();
+        }
+        activeAction = actions[name];
+        activeAction.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce);
+        activeAction.setEffectiveTimeScale(speed);
+        activeAction.play();
+    }
+
+    // Play the "sweat" animation
+    function playSweatAnimation() {
+        if (actions["sweat"] && !actions["sweat"].isRunning()) {
+            actions["sweat"].play();
+        }
+    }
+
 </script>
 
 </body>
