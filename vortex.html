@@ -101,6 +101,12 @@
                         if (child.isMesh) {
                             child.castShadow = true;
                             //child.receiveShadow = true;
+                                    if (child.material.map) {
+                                        child.material.map.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                                        child.material.map.minFilter = THREE.LinearFilter; // Smooth scaling
+                                         }
+
+                                        child.material.needsUpdate = true; // Ensure changes apply
                         }
                     });
 
