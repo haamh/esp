@@ -11,159 +11,177 @@
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js"></script>
 
-    <script type="module">
-        import * as THREE from 'https://cdn.skypack.dev/three@0.129.0/build/three.module.js';
-        import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.129.0/examples/jsm/loaders/GLTFLoader.js';
-
-        let scene, camera, renderer, model, mixer;
-        const clock = new THREE.Clock();
-        let actions = {};
-        let activeAction, previousAction;
-
-        window.addEventListener('DOMContentLoaded', init);
-
-        function init() {
-            console.log('Initializing scene...');
-
-            // Create container for model
-            const container = document.createElement('div');
-            container.id = 'model-container';
-            document.body.appendChild(container);
-
-            // Set up scene
-            scene = new THREE.Scene();
-
-            // Camera setup
-            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
-            camera.position.set(0, 1, 3);
-
-            // Renderer setup
-            renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-            renderer.setSize(300, 400);
-            //renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Higher quality, softer shadows
-
-            renderer.domElement.style.height = '120vh';
-            renderer.domElement.style.width = '60vh';
-            renderer.domElement.style.pointerEvents = 'none';
-            renderer.domElement.style.position = 'fixed';
-            renderer.domElement.style.bottom = '-7vh';
-            renderer.domElement.style.left = '-15vw';
-            renderer.domElement.style.zIndex = '1';
-
-            document.body.appendChild(renderer.domElement);
-
-            // Lighting
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 3);
-            directionalLight.shadow.mapSize.width = 2048; // Increase from 1024 (higher quality)
-            directionalLight.shadow.mapSize.height = 2048;
-
-            directionalLight.position.set(2, 5, 5);
-            directionalLight.castShadow = true;
-            scene.add(directionalLight);
-
-            //const ambientLight = new THREE.AmbientLight(0xffffff, 1);
-            //scene.add(ambientLight);
-
-            // Ground for shadows
-            const ground = new THREE.Mesh(
-                new THREE.PlaneGeometry(10, 10),
-                new THREE.ShadowMaterial({ opacity: 0.5 })
-            );
-            ground.rotation.x = -Math.PI / 2;
-            ground.position.y = 0;
-            ground.receiveShadow = true;
-            scene.add(ground);
-
-            // Load 3D model
-            loadModel();
-
-            // Handle events
-            window.addEventListener('scroll', () => transitionToAnimation('backflip', 0.5, false, 'idle'));
-
-            // Start animation loop
-            animate();
+    <style>
+        #overlay {
+            position: fixed;
+            top: 10px;
+            right: 20px;
+            z-index: 10;
+            font-family: 'Bebas Neue', cursive;
+            color: black;
         }
 
-        function loadModel() {
-            console.log('Loading model...');
-            const loader = new GLTFLoader();
-            loader.load(
-                'EL2205.glb?' + Date.now(), // Cache busting
-                (gltf) => {
-                    model = gltf.scene;
-                    model.scale.set(1, 1, 1);
-                    model.rotation.y = THREE.MathUtils.degToRad(-90);
-                    scene.add(model);
-
-                    model.traverse((child) => {
-                        if (child.isMesh) {
-                            child.castShadow = true;
-                            //child.receiveShadow = true;
-                                    if (child.material.map) {
-                                        child.material.map.anisotropy = renderer.capabilities.getMaxAnisotropy();
-                                        child.material.map.minFilter = THREE.LinearFilter; // Smooth scaling
-                                         }
-
-                                        child.material.needsUpdate = true; // Ensure changes apply
-                        }
-                    });
-
-                    mixer = new THREE.AnimationMixer(model);
-                    gltf.animations.forEach((clip) => {
-                        actions[clip.name] = mixer.clipAction(clip);
-                    });
-
-                    console.log('Available animations:', Object.keys(actions));
-
-                    if (actions.idle) {
-                        activeAction = actions.idle;
-                        activeAction.play();
-                    }
-                },
-                (xhr) => {
-                    console.log(`Loading progress: ${(xhr.loaded / xhr.total) * 100}%`);
-                },
-                (error) => {
-                    console.error('Error loading model:', error);
-                }
-            );
+        #connect-btn {
+            border: 1px solid black;
+            padding: 5px 10px;
+            cursor: pointer;
+            margin-bottom: 20px;
         }
 
-        function transitionToAnimation(animationName, duration, loop = false, returnTo = null) {
-            if (!actions[animationName] || activeAction === actions[animationName]) return;
-
-            previousAction = activeAction;
-            activeAction = actions[animationName];
-
-            if (previousAction) previousAction.fadeOut(duration);
-            activeAction.reset().fadeIn(duration).play();
-
-            if (loop) {
-                activeAction.setLoop(THREE.LoopRepeat, Infinity);
-            }
-
-            activeAction.clampWhenFinished = true;
-
-            if (returnTo) {
-                const actualDuration = activeAction.getClip().duration;
-                setTimeout(() => {
-                    if (activeAction === actions[animationName]) {
-                        transitionToAnimation(returnTo, 0.5);
-                    }
-                }, actualDuration * 1000);
-            }
+        .status-item {
+            margin-bottom: 10px;
         }
 
-        function animate() {
-            requestAnimationFrame(animate);
-            if (mixer) mixer.update(clock.getDelta());
-            renderer.render(scene, camera);
+        .status-icon {
+            margin-left: 5px;
         }
-
-    </script>
+    </style>
 </head>
 <body>
+
+<div id="overlay">
+    <div id="connect-btn">CONNECT</div>
+    <div class="status-item">13 : Steps <span class="status-icon">🦶</span></div>
+    <div class="status-item">MED : Sweat Lvl <span class="status-icon">💧</span></div>
+    <div class="status-item">72 : Avg BPM <span class="status-icon">❤️</span></div>
+</div>
+
+<script type="module">
+    import * as THREE from 'https://cdn.skypack.dev/three@0.129.0/build/three.module.js';
+    import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.129.0/examples/jsm/loaders/GLTFLoader.js';
+
+    let scene, camera, renderer, model, mixer;
+    const clock = new THREE.Clock();
+    let actions = {};
+    let activeAction, previousAction;
+
+    window.addEventListener('DOMContentLoaded', init);
+
+    function init() {
+        console.log('Initializing scene...');
+
+        const container = document.createElement('div');
+        container.id = 'model-container';
+        document.body.appendChild(container);
+
+        scene = new THREE.Scene();
+
+        camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 1, 3);
+
+        renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        renderer.setSize(300, 400);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        renderer.domElement.style.height = '120vh';
+        renderer.domElement.style.width = '60vh';
+        renderer.domElement.style.pointerEvents = 'none';
+        renderer.domElement.style.position = 'fixed';
+        renderer.domElement.style.bottom = '-7vh';
+        renderer.domElement.style.left = '-15vw';
+        renderer.domElement.style.zIndex = '1';
+
+        document.body.appendChild(renderer.domElement);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 3);
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+
+        directionalLight.position.set(2, 5, 5);
+        directionalLight.castShadow = true;
+        scene.add(directionalLight);
+
+        const ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(10, 10),
+            new THREE.ShadowMaterial({ opacity: 0.5 })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = 0;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        loadModel();
+
+        window.addEventListener('scroll', () => transitionToAnimation('backflip', 0.5, false, 'idle'));
+
+        animate();
+    }
+
+    function loadModel() {
+        console.log('Loading model...');
+        const loader = new GLTFLoader();
+        loader.load(
+            'EL2205.glb?' + Date.now(),
+            (gltf) => {
+                model = gltf.scene;
+                model.scale.set(1, 1, 1);
+                model.rotation.y = THREE.MathUtils.degToRad(-90);
+                scene.add(model);
+
+                model.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        if (child.material.map) {
+                            child.material.map.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                            child.material.map.minFilter = THREE.LinearFilter;
+                        }
+                        child.material.needsUpdate = true;
+                    }
+                });
+
+                mixer = new THREE.AnimationMixer(model);
+                gltf.animations.forEach((clip) => {
+                    actions[clip.name] = mixer.clipAction(clip);
+                });
+
+                console.log('Available animations:', Object.keys(actions));
+
+                if (actions.idle) {
+                    activeAction = actions.idle;
+                    activeAction.play();
+                }
+            },
+            (xhr) => {
+                console.log(`Loading progress: ${(xhr.loaded / xhr.total) * 100}%`);
+            },
+            (error) => {
+                console.error('Error loading model:', error);
+            }
+        );
+    }
+
+    function transitionToAnimation(animationName, duration, loop = false, returnTo = null) {
+        if (!actions[animationName] || activeAction === actions[animationName]) return;
+
+        previousAction = activeAction;
+        activeAction = actions[animationName];
+
+        if (previousAction) previousAction.fadeOut(duration);
+        activeAction.reset().fadeIn(duration).play();
+
+        if (loop) {
+            activeAction.setLoop(THREE.LoopRepeat, Infinity);
+        }
+
+        activeAction.clampWhenFinished = true;
+
+        if (returnTo) {
+            const actualDuration = activeAction.getClip().duration;
+            setTimeout(() => {
+                if (activeAction === actions[animationName]) {
+                    transitionToAnimation(returnTo, 0.5);
+                }
+            }, actualDuration * 1000);
+        }
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        if (mixer) mixer.update(clock.getDelta());
+        renderer.render(scene, camera);
+    }
+
+</script>
 </body>
 </html>
