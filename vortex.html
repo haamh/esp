@@ -89,7 +89,7 @@
                 'EL2205.glb?' + Date.now(), // Cache busting
                 (gltf) => {
                     model = gltf.scene;
-                    model.scale.set(0.5, 0.5, 0.5);
+                    model.scale.set(1, 1, 1);
                     model.rotation.y = THREE.MathUtils.degToRad(-60);
                     scene.add(model);
 
