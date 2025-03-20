@@ -8,7 +8,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
 
-    <title>3D Model Viewer</title>
+    <title>3D Model Viewer with ESP32 Health Monitor</title>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js"></script>
 
@@ -60,6 +60,10 @@
     const clock = new THREE.Clock();
     let actions = {};
     let activeAction, previousAction;
+
+    const serviceUUID = "12345678-1234-5678-1234-56789abcdef0";
+    const characteristicUUID = "abcdef01-1234-5678-1234-56789abcdef1";
+    let characteristic;
 
     window.addEventListener('DOMContentLoaded', init);
 
@@ -163,9 +167,6 @@
 
     async function connectBluetooth() {
         try {
-            const serviceUUID = "12345678-1234-5678-1234-56789abcdef0";
-            const characteristicUUID = "abcdef01-1234-5678-1234-56789abcdef1";
-
             const device = await navigator.bluetooth.requestDevice({
                 acceptAllDevices: true,
                 optionalServices: [serviceUUID]
@@ -175,10 +176,11 @@
             document.getElementById("status").textContent = "Status: Connected";
 
             const service = await server.getPrimaryService(serviceUUID);
-            const characteristic = await service.getCharacteristic(characteristicUUID);
+            characteristic = await service.getCharacteristic(characteristicUUID);
 
             characteristic.addEventListener("characteristicvaluechanged", handleData);
             await characteristic.startNotifications();
+            console.log("Connected and receiving data...");
         } catch (error) {
             console.error("Bluetooth connection failed", error);
         }
@@ -187,46 +189,337 @@
     window.connectBluetooth = connectBluetooth;
 
     function handleData(event) {
-        let data = new TextDecoder().decode(event.target.value);
-        let json = JSON.parse(data);
+        try {
+            let data = new TextDecoder().decode(event.target.value);
+            console.log("Received Data:", data);
 
-        // Parsing the motion, BPM, and GSR data
-        let steps = json.Steps;
-        let bpm = json.AvgBPM;
-        let gsr = json.GSR;
+            let json = JSON.parse(data);
 
-        // Update UI
-        document.getElementById("steps").textContent = steps;
-        document.getElementById("avgBpm").textContent = bpm;
+            // Update UI
+            document.getElementById("avgBpm").textContent = json.AvgBPM;
+            document.getElementById("steps").textContent = json.Steps;
+            document.getElementById("gsr").textContent = json.GSR;
 
-        // Update GSR as Stress/Sweat Level
+            // Animation handling
+            updateAnimations(json);
+        } catch (err) {
+            console.error("Error parsing JSON data:", err);
+        }
+    }
+
+    function updateAnimations(json) {
+        const steps = json.Steps;
+        const bpm = json.AvgBPM;
+        const gsr = json.GSR;
+
+        // Determine stress level
         let stressLevel = "Relaxed";
         if (gsr > 1500) {
             stressLevel = "Relaxed";
-        } else if (gsr >= 800) {
+        } else if (gsr >= 1000) {
             stressLevel = "Warming Up";
-        } else if (gsr < 500) {
+        } else if (gsr < 800) {
             stressLevel = "Hyperactive";
         }
 
         document.getElementById("gsr").textContent = stressLevel;
 
-        // Animation handling
+        // Animation logic
         if (steps > 1) {
             if (bpm > 90) {
-                transitionToAnimation('run', 0.6, true, 'jog');
+                transitionToAnimation('run', 0.5, true, 'jog');
             } else {
-                transitionToAnimation('jog', 0.6, true, 'run');
+                transitionToAnimation('jog', 0.5, true, 'run');
             }
 
-            // If stress level is "Warming Up" or "Hyperactive", play sweat animation
+            // Play sweat animation if not relaxed
             if (stressLevel !== "Relaxed") {
                 playSweatAnimation();
             } else {
                 stopSweatAnimation();
             }
         } else {
-            transitionToAnimation('idle', 0.6, false, 'jog');
+            transitionToAnimation('idle', 0.5, false, 'jog');
+            stopSweatAnimation();
+        }
+    }
+
+    // Transition between animations based on conditions
+    function transitionToAnimation(name, speed, loop, stopOther) {
+        if (activeAction && activeAction.isRunning()) {
+            activeAction.stop();
+        }
+        
+        if (actions[name]) {
+            activeAction = actions[name];
+            activeAction.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce);
+            activeAction.setEffectiveTimeScale(speed);
+            activeAction.play();
+        } else {
+            console.warn(`Animation "${name}" not found.`);
+        }
+    }
+
+    // Play the "sweat" animation
+    function playSweatAnimation() {
+        if (actions["sweat"] && !actions["sweat"].isRunning()) {
+            actions["sweat"].play();
+        }
+    }
+
+    // Stop the "sweat" animation
+    function stopSweatAnimation() {
+        if (actions["sweat"] && actions["sweat"].isRunning()) {
+            actions["sweat"].stop();
+        }
+    }
+
+</script>
+
+</body>
+
+</html><!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
+    <title>3D Model Viewer with ESP32 Health Monitor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js"></script>
+
+    <style>
+        #overlay {
+            position: fixed;
+            top: 10px;
+            right: 20px;
+            z-index: 10;
+            font-family: 'Bebas Neue', cursive;
+            color: black;
+        }
+
+        #connect-btn {
+            border: 1px solid black;
+            padding: 5px 10px;
+            cursor: pointer;
+            margin-bottom: 8vh;
+            margin-right: 35vh;
+            margin-top: 2vh;
+        }
+
+        .status-item {
+            margin-left: 30vh;
+            margin-bottom: 10px;
+        }
+
+        .status-icon {
+            margin-left: 5px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div id="overlay">
+    <div id="connect-btn" onclick="connectBluetooth()">CONNECT</div>
+    <div class="status-item" id="status">Disconnected : Status <span class="status-icon">📊</span></div>
+    <div class="status-item">Steps: <span id="steps">0</span> <span class="status-icon">👣</span></div>
+    <div class="status-item">Stress/Sweat Level: <span id="gsr">0</span> <span class="status-icon">💧</span></div>
+    <div class="status-item">Avg BPM: <span id="avgBpm">0</span> <span class="status-icon">❤️</span></div>
+</div>
+
+<script type="module">
+    import * as THREE from 'https://cdn.skypack.dev/three@0.129.0/build/three.module.js';
+    import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.129.0/examples/jsm/loaders/GLTFLoader.js';
+
+    let scene, camera, renderer, model, mixer;
+    const clock = new THREE.Clock();
+    let actions = {};
+    let activeAction, previousAction;
+
+    const serviceUUID = "12345678-1234-5678-1234-56789abcdef0";
+    const characteristicUUID = "abcdef01-1234-5678-1234-56789abcdef1";
+    let characteristic;
+
+    window.addEventListener('DOMContentLoaded', init);
+
+    function init() {
+        console.log('Initializing scene...');
+
+        const container = document.createElement('div');
+        container.id = 'model-container';
+        document.body.appendChild(container);
+
+        scene = new THREE.Scene();
+
+        camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 1, 3);
+
+        renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        renderer.setSize(300, 400);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        renderer.domElement.style.height = '120vh';
+        renderer.domElement.style.width = '60vh';
+        renderer.domElement.style.pointerEvents = 'none';
+        renderer.domElement.style.position = 'fixed';
+        renderer.domElement.style.bottom = '-7vh';
+        renderer.domElement.style.left = '-15vw';
+        renderer.domElement.style.zIndex = '1';
+
+        document.body.appendChild(renderer.domElement);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 3);
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+
+        directionalLight.position.set(2, 5, 5);
+        directionalLight.castShadow = true;
+        scene.add(directionalLight);
+
+        const ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(10, 10),
+            new THREE.ShadowMaterial({ opacity: 0.5 })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = 0;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        loadModel();
+
+        animate();
+    }
+
+    function loadModel() {
+        console.log('Loading model...');
+        const loader = new GLTFLoader();
+        loader.load(
+            'EL2205.glb?' + Date.now(),
+            (gltf) => {
+                model = gltf.scene;
+                model.scale.set(1, 1, 1);
+                model.rotation.y = THREE.MathUtils.degToRad(-90);
+                scene.add(model);
+
+                model.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        if (child.material.map) {
+                            child.material.map.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                            child.material.map.minFilter = THREE.LinearFilter;
+                        }
+                        child.material.needsUpdate = true;
+                    }
+                });
+
+                mixer = new THREE.AnimationMixer(model);
+                gltf.animations.forEach((clip) => {
+                    actions[clip.name] = mixer.clipAction(clip);
+                });
+
+                console.log('Available animations:', Object.keys(actions));
+
+                if (actions.idle) {
+                    activeAction = actions.idle;
+                    activeAction.play();
+                }
+            },
+            (xhr) => {
+                console.log(`Loading progress: ${(xhr.loaded / xhr.total) * 100}%`);
+            },
+            (error) => {
+                console.error('Error loading model:', error);
+            }
+        );
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        if (mixer) mixer.update(clock.getDelta());
+        renderer.render(scene, camera);
+    }
+
+    async function connectBluetooth() {
+        try {
+            const device = await navigator.bluetooth.requestDevice({
+                acceptAllDevices: true,
+                optionalServices: [serviceUUID]
+            });
+
+            const server = await device.gatt.connect();
+            document.getElementById("status").textContent = "Status: Connected";
+
+            const service = await server.getPrimaryService(serviceUUID);
+            characteristic = await service.getCharacteristic(characteristicUUID);
+
+            characteristic.addEventListener("characteristicvaluechanged", handleData);
+            await characteristic.startNotifications();
+            console.log("Connected and receiving data...");
+        } catch (error) {
+            console.error("Bluetooth connection failed", error);
+        }
+    }
+
+    window.connectBluetooth = connectBluetooth;
+
+    function handleData(event) {
+        try {
+            let data = new TextDecoder().decode(event.target.value);
+            console.log("Received Data:", data);
+
+            let json = JSON.parse(data);
+
+            // Update UI
+            document.getElementById("avgBpm").textContent = json.AvgBPM;
+            document.getElementById("steps").textContent = json.Steps;
+            document.getElementById("gsr").textContent = json.GSR;
+
+            // Animation handling
+            updateAnimations(json);
+        } catch (err) {
+            console.error("Error parsing JSON data:", err);
+        }
+    }
+
+    function updateAnimations(json) {
+        const steps = json.Steps;
+        const bpm = json.AvgBPM;
+        const gsr = json.GSR;
+
+        // Determine stress level
+        let stressLevel = "Relaxed";
+        if (gsr > 1500) {
+            stressLevel = "Relaxed";
+        } else if (gsr >= 1000) {
+            stressLevel = "Warming Up";
+        } else if (gsr < 800) {
+            stressLevel = "Hyperactive";
+        }
+
+        document.getElementById("gsr").textContent = stressLevel;
+
+        // Animation logic
+        if (steps > 1) {
+            if (bpm > 90) {
+                transitionToAnimation('run', 0.5, true, 'jog');
+            } else {
+                transitionToAnimation('jog', 0.5, true, 'run');
+            }
+
+            // Play sweat animation if not relaxed
+            if (stressLevel !== "Relaxed") {
+                playSweatAnimation();
+            } else {
+                stopSweatAnimation();
+            }
+        } else {
+            transitionToAnimation('idle', 0.5, false, 'jog');
             stopSweatAnimation();
         }
     }
