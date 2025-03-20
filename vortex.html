@@ -234,6 +234,7 @@
 
             // Play sweat animation if not relaxed
             if (stressLevel !== "Relaxed") {
+                
                 playSweatAnimation();
             } else {
                 stopSweatAnimation();
@@ -242,6 +243,12 @@
             transitionToAnimation('idle', 0.5, false, 'jog');
             stopSweatAnimation();
         }
+                    if (stressLevel !== "Relaxed") {
+                
+                playSweatAnimation();
+            } else {
+                stopSweatAnimation();
+            }
     }
 
     // Transition between animations based on conditions
@@ -265,6 +272,7 @@
         if (actions["sweat"] && !actions["sweat"].isRunning()) {
             actions["sweat"].play();
         }
+        console.log("triggered sweat animation");
     }
 
     // Stop the "sweat" animation
@@ -272,6 +280,7 @@
         if (actions["sweat"] && actions["sweat"].isRunning()) {
             actions["sweat"].stop();
         }
+        console.log("Stopped sweat animation");
     }
 
 </script>
