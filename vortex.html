@@ -239,7 +239,7 @@ function updateAnimations(json) {
 
     // Play sweat animation if stress level is anything other than "Relaxed"
     if (stressLevel !== "Relaxed") {
-        playSweatAnimation();
+        transitionToAnimation('sweat', 0.5, true, 'idle');
     } else {
         stopSweatAnimation();
     }
