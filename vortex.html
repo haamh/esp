@@ -60,6 +60,7 @@
     const clock = new THREE.Clock();
     let actions = {};
     let activeAction, previousAction;
+    let transitionQueue = null; // To hold the next animation to play
 
     const serviceUUID = "12345678-1234-5678-1234-56789abcdef0";
     const characteristicUUID = "abcdef01-1234-5678-1234-56789abcdef1";
@@ -162,6 +163,7 @@
     function animate() {
         requestAnimationFrame(animate);
         if (mixer) mixer.update(clock.getDelta());
+        checkTransitionQueue(); // Check for queued transitions
         renderer.render(scene, camera);
     }
 
@@ -234,7 +236,6 @@
 
             // Play sweat animation if not relaxed
             if (stressLevel !== "Relaxed") {
-                
                 playSweatAnimation();
             } else {
                 stopSweatAnimation();
@@ -243,20 +244,16 @@
             transitionToAnimation('idle', 0.5, false, 'jog');
             stopSweatAnimation();
         }
-                    if (stressLevel !== "Relaxed") {
-                
-                playSweatAnimation();
-            } else {
-                stopSweatAnimation();
-            }
     }
 
     // Transition between animations based on conditions
     function transitionToAnimation(name, speed, loop, stopOther) {
         if (activeAction && activeAction.isRunning()) {
-            activeAction.stop();
+            // Queue the new animation to play after the current one finishes
+            transitionQueue = { name, speed, loop };
+            return; // Exit the function to wait for the current animation to finish
         }
-        
+
         if (actions[name]) {
             activeAction = actions[name];
             activeAction.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce);
@@ -267,12 +264,21 @@
         }
     }
 
+    // Call this function in your animation update loop to check for queued transitions
+    function checkTransitionQueue() {
+        if (transitionQueue && activeAction && !activeAction.isRunning()) {
+            const { name, speed, loop } = transitionQueue;
+            transitionQueue = null; // Clear the queue
+            transitionToAnimation(name, speed, loop); // Play the queued animation
+        }
+    }
+
     // Play the "sweat" animation
     function playSweatAnimation() {
         if (actions["sweat"] && !actions["sweat"].isRunning()) {
             actions["sweat"].play();
         }
-        console.log("triggered sweat animation");
+        console.log("Triggered sweat animation");
     }
 
     // Stop the "sweat" animation
