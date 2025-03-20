@@ -214,9 +214,9 @@
         // Animation handling
         if (steps > 1) {
             if (bpm > 90) {
-                transitionToAnimation('run', 0.5, true, 'jog');
+                transitionToAnimation('run', 0.6, true, 'jog');
             } else {
-                transitionToAnimation('jog', 0.5, true, 'run');
+                transitionToAnimation('jog', 0.6, true, 'run');
             }
 
             // If stress level is "Warming Up" or "Hyperactive", play sweat animation
@@ -226,7 +226,7 @@
                 stopSweatAnimation();
             }
         } else {
-            transitionToAnimation('idle', 0.5, false, 'jog');
+            transitionToAnimation('idle', 0.6, false, 'jog');
             stopSweatAnimation();
         }
     }
