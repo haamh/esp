@@ -209,42 +209,42 @@
         }
     }
 
-    function updateAnimations(json) {
-        const steps = json.Steps;
-        const bpm = json.AvgBPM;
-        const gsr = json.GSR;
+function updateAnimations(json) {
+    const steps = json.Steps;
+    const bpm = json.AvgBPM;
+    const gsr = json.GSR;
 
-        // Determine stress level
-        let stressLevel = "Relaxed";
-        if (gsr > 1500) {
-            stressLevel = "Relaxed";
-        } else if (gsr >= 1000) {
-            stressLevel = "Warming Up";
-        } else if (gsr < 800) {
-            stressLevel = "Hyperactive";
-        }
-
-        document.getElementById("gsr").textContent = stressLevel;
-
-        // Animation logic
-        if (steps > 1) {
-            if (bpm > 90) {
-                transitionToAnimation('run', 0.5, true, 'jog');
-            } else {
-                transitionToAnimation('jog', 0.5, true, 'run');
-            }
-
-            // Play sweat animation if not relaxed
-            if (stressLevel !== "Relaxed") {
-                playSweatAnimation();
-            } else {
-                stopSweatAnimation();
-            }
-        } else {
-            transitionToAnimation('idle', 0.5, false, 'jog');
-            stopSweatAnimation();
-        }
+    // Determine stress level
+    let stressLevel = "Relaxed";
+    if (gsr > 1500) {
+        stressLevel = "Relaxed";
+    } else if (gsr >= 1000) {
+        stressLevel = "Warming Up";
+    } else if (gsr < 800) {
+        stressLevel = "Hyperactive";
     }
+
+    document.getElementById("gsr").textContent = stressLevel;
+
+    // Animation logic
+    if (steps > 1) {
+        if (bpm > 90) {
+            transitionToAnimation('run', 0.5, true, 'jog');
+        } else {
+            transitionToAnimation('jog', 0.5, true, 'run');
+        }
+    } else {
+        transitionToAnimation('idle', 0.5, false, 'jog');
+    }
+
+    // Play sweat animation if stress level is anything other than "Relaxed"
+    if (stressLevel !== "Relaxed") {
+        playSweatAnimation();
+    } else {
+        stopSweatAnimation();
+    }
+}
+    
 
     // Transition between animations based on conditions
     function transitionToAnimation(name, speed, loop, stopOther) {
