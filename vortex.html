@@ -109,8 +109,6 @@
 
         loadModel();
 
-        window.addEventListener('scroll', () => transitionToAnimation('backflip', 0.5, false, 'idle'));
-
         animate();
     }
 
@@ -193,12 +191,12 @@
         let json = JSON.parse(data);
 
         // Parsing the motion, BPM, and GSR data
-        let motion = json.Motion;
+        let steps = json.Steps;
         let bpm = json.AvgBPM;
         let gsr = json.GSR;
 
         // Update UI
-        document.getElementById("steps").textContent = json.Steps;
+        document.getElementById("steps").textContent = steps;
         document.getElementById("avgBpm").textContent = bpm;
 
         // Update GSR as Stress/Sweat Level
@@ -213,25 +211,23 @@
 
         document.getElementById("gsr").textContent = stressLevel;
 
-        // Motion and animation handling
-        if (motion === "moving") {
+        // Animation handling
+        if (steps > 1) {
             if (bpm > 90) {
                 transitionToAnimation('run', 0.5, true, 'jog');
             } else {
                 transitionToAnimation('jog', 0.5, true, 'run');
             }
 
-            // If stress level is "Warming Up" or "Hyperactive", play sweat animation and use appropriate motion
-            if (stressLevel === "Warming Up" || stressLevel === "Hyperactive") {
-                if (stressLevel === "Warming Up") {
-                    transitionToAnimation('jog', 0.5, true, 'run');
-                } else {
-                    transitionToAnimation('run', 0.5, true, 'jog');
-                }
+            // If stress level is "Warming Up" or "Hyperactive", play sweat animation
+            if (stressLevel !== "Relaxed") {
                 playSweatAnimation();
+            } else {
+                stopSweatAnimation();
             }
         } else {
             transitionToAnimation('idle', 0.5, false, 'jog');
+            stopSweatAnimation();
         }
     }
 
@@ -240,16 +236,28 @@
         if (activeAction && activeAction.isRunning()) {
             activeAction.stop();
         }
-        activeAction = actions[name];
-        activeAction.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce);
-        activeAction.setEffectiveTimeScale(speed);
-        activeAction.play();
+        
+        if (actions[name]) {
+            activeAction = actions[name];
+            activeAction.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce);
+            activeAction.setEffectiveTimeScale(speed);
+            activeAction.play();
+        } else {
+            console.warn(`Animation "${name}" not found.`);
+        }
     }
 
     // Play the "sweat" animation
     function playSweatAnimation() {
         if (actions["sweat"] && !actions["sweat"].isRunning()) {
             actions["sweat"].play();
+        }
+    }
+
+    // Stop the "sweat" animation
+    function stopSweatAnimation() {
+        if (actions["sweat"] && actions["sweat"].isRunning()) {
+            actions["sweat"].stop();
         }
     }
 
